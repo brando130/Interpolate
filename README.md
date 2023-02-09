@@ -16,3 +16,5 @@ Once installed, select 'Interpolate' from Scripts.
 ![interpolate](https://user-images.githubusercontent.com/25804985/217945736-bd9bec3f-523d-4a51-9fc4-d9bab34d7ec7.jpg)
 
 You can set the FPS and duration (in seconds) of the video you'd like to generate frames for, then select the checkbox for any settings you want to interpolate, and set the min and max values for the animation.
+
+![interpolate2](https://user-images.githubusercontent.com/25804985/217946340-31ffc8f1-ccc1-4a76-bd02-e2e28033a58b.jpg)
