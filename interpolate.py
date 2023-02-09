@@ -45,8 +45,8 @@ class Script(scripts.Script):
 
         # CFG Scale
         slider_cfg_scale = gr.Checkbox(label='Interpolate CFG Scale', value=False)
-        slider_cfg_scale_min = gr.Slider(label="CFG Scale Min", mininum=0.1, maximum=10, step=0.1, value=1)
-        slider_cfg_scale_max = gr.Slider(label="CFG Scale Max", mininum=0.1, maximum=10, step=0.1, value=1)
+        slider_cfg_scale_min = gr.Slider(label="CFG Scale Min", mininum=0.1, maximum=30, step=0.1, value=1)
+        slider_cfg_scale_max = gr.Slider(label="CFG Scale Max", mininum=0.1, maximum=30, step=0.1, value=1)
 
         # Denoising Strength
         slider_denoising_strength = gr.Checkbox(label='Interpolate Denoising Strength', value=False, visible=is_img2img)
