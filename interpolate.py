@@ -20,10 +20,6 @@ from PIL import Image
 # Interpolate v1 (C) 2023 Brandon Anderson. MIT License.
 # Tested with Automatic 1111 WebUI w/ python: 3.10.6  •  torch: 1.12.1+cu113  •  xformers: N/A  •  gradio: 3.16.2  •  commit: e33cace2
 
-def generate_random_string(length=6):
-    letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(length))
-
 class Script(scripts.Script):
 
     def title(self):
