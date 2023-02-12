@@ -7,6 +7,7 @@ https://user-images.githubusercontent.com/25804985/217940047-24d67139-6909-4929-
 
 # Requirements
 Automatic 1111's WebUI for Stable Diffusion (https://github.com/AUTOMATIC1111/stable-diffusion-webui)
+
 Optional: ffmpeg.exe for video creation (must be linked in your environment PATH) 
 
 # Installation / Getting Started
