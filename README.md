@@ -1,5 +1,5 @@
 # Interpolate
-A script for the Automatic 1111 Web UI which allows you to interpolate the sliders to create transitions
+A script for Automatic 1111's Web UI which allows you to interpolate the sliders to create transitions
 
 https://user-images.githubusercontent.com/25804985/217944337-07072b97-3223-401c-82f7-0fd311afec2a.mp4
 
