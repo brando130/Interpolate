@@ -26,6 +26,8 @@ from scipy.interpolate import CubicHermiteSpline
 # - Random order for prompt blending (BROKE!)
 # - Multiple music brackets, multiple analysis files (Unsupported)
 # - Use Bezier Curve (BROKE!)
+# - Fix filter_entries (enforces at least two entries in a bracket, but chooses the first 0-value entry in the list, instead of correctly
+# # using the previous/next entry (based on the growing flag))
 
 
 # Gradio control visibility toggler
@@ -372,9 +374,17 @@ class Script(scripts.Script):
 
         frames_drawn_this_second = 0
 
-        first_output = -1
-        second_output = -1
-        completed_steps_last_frame = -1
+        # Which outputs to grow and shrink?
+        first_output = None
+        second_output = None
+        if prompt_blending:
+            first_output = []
+            second_output = []
+        # Track last frame's grow state
+        growing_last_frame = True
+        # Is it time to choose new outputs? (We choose new outputs after a full grow/shrink cycle)
+        choose_output = True
+        first_run = True
 
         # Keep track of the original prompt
         og = p.prompt
@@ -430,8 +440,23 @@ class Script(scripts.Script):
                 p.denoising_strength = slider_denoising_strength_min + (slider_denoising_strength_max - slider_denoising_strength_min) * (i / total_frames)
 
             if prompt_blending:
+                
+                def choose_outputs(outputs, first_run, list_number):
+                    print("outputs rcvd: ", outputs)
+                    return [random.randint(0,outputs-1), random.randint(0,outputs-1)] if first_run else [second_output[list_number], random.randint(0,outputs-1)]
+
                 # Reset the prompt
                 p.prompt = og
+
+                # Choose new outputs?
+                grow_step = i / slider_FPS
+                completed_grow_steps = math.floor(grow_step)
+                growing = False
+                if completed_grow_steps % 2 == 0:
+                    growing = True
+                if growing and growing != growing_last_frame and not first_run: choose_output = True
+
+
                 # Identify all the nested lists in the input string
                 nested_list_regex = r'{((?:(?!♪|\{|\}).)*)}'
                 nested_lists = re.findall(nested_list_regex, p.prompt)
@@ -444,17 +469,93 @@ class Script(scripts.Script):
                     print(options_and_weights)
                     # Build a dictionary mapping each option to its interpolated weight
                     option_weights = {}
+                    list_number = 0
                     for o in options_and_weights:
-                        weights = interpolate_weights(len(o), slider_FPS, i)
+                        if (choose_output):
+                            chosen_outputs = choose_outputs(len(o), first_run, list_number)
+                            if first_run:
+                                first_output.append(chosen_outputs[0])
+                                print(chosen_outputs[0])
+                                second_output.append(chosen_outputs[1])
+                                print(chosen_outputs[1])
+                            else:
+                                first_output[list_number] = chosen_outputs[0]
+                                print(chosen_outputs[0])
+                                second_output[list_number] = chosen_outputs[1]
+                                print(chosen_outputs[1])
+                        if (prompt_blending_random):
+                            weights = interpolate_weights(len(o), slider_FPS, i, first_output[list_number], second_output[list_number])
+                            print("first o: ", first_output[list_number], " second o: ", second_output[list_number])
+                        else:    
+                            weights = interpolate_weights(len(o), slider_FPS, i)
                         for j in range(len(o)):
                            option_weights[o[j]] = weights[j]
+                        list_number += 1
+                        
 
                    # Replace the nested list with the interpolated option
-                    interpolated_option = max(option_weights, key=option_weights.get)
                     p.prompt = p.prompt.replace("{" + nl + "}", "{" + '|'.join(options_and_weights[0]) + "}")
+                
+                    # Reset Choose Output / First Run flags
+                    if choose_output: choose_output = False
+                    if first_run: first_run = False
+
+                # Record growing state
+                growing_last_frame = growing
 
                 # Print the final p.prompt string
                 print(p.prompt)
+
+                #input: "A {man@0.016666666666666607|woman@1.0} walking down the {street@0|road@1.0|sidewalk@0.016666666666666607}"
+                #output: [[['man', 0.016666666666666607], ['woman', 1.0]], [['street', 0.0], ['road', 1.0], ['sidewalk', 0.016666666666666607]]]
+                def extract_entries(s):
+                    pattern = r'\{(.*?)\}'
+                    matches = re.findall(pattern, s)
+                    result = []
+                    for m in matches:
+                        entries = m.split('|')
+                        entry_list = []
+                        for entry in entries:
+                            parts = entry.split('@')
+                            entry_list.append([parts[0], float(parts[1])])
+                        result.append(entry_list)
+                    return result
+
+                #input: "A {man@0.016666666666666607|woman@1.0} walking down the {street@0|road@1.0|sidewalk@0.016666666666666607}"
+                #output: ['{man@0.016666666666666607|woman@1.0}', '{road@1.0|sidewalk@0.016666666666666607}']
+                def filter_entries(s, growing=True):
+                    x = extract_entries(s)
+                    new_entries = []
+                    for group in x:
+                        new_group = []
+                        non_zero_entries = [entry for entry in group if entry[1] > 0]
+                        zero_entries = [entry for entry in group if entry[1] == 0]
+                        if len(non_zero_entries) >= 2:
+                            for entry in non_zero_entries:
+                                new_group.append(entry)
+                        elif len(non_zero_entries) == 1:
+                            if growing:
+                                new_group.append(non_zero_entries[0])
+                                if zero_entries:
+                                    new_group.append(zero_entries[0])
+                            else:
+                                if zero_entries:
+                                    new_group.append(zero_entries[0])
+                                new_group.append(non_zero_entries[0])
+                        else:
+                            if zero_entries:
+                                new_group.append(zero_entries[0])
+                        if new_group:
+                            entry_string = "|".join([f"{entry[0]}@{entry[1]}" for entry in new_group])
+                            new_entries.append(f"{{{entry_string}}}")
+                    return new_entries
+                
+                new_string = p.prompt
+                for bracket_list, item in enumerate(filter_entries(p.prompt)):
+                    new_string = new_string.replace(p.prompt.split('{')[bracket_list+1].split('}')[0], item.strip('{}'))
+                p.prompt = new_string
+
+                print("new prompt: " + p.prompt)
 
             if music_blending:
                 try:               
@@ -504,6 +605,8 @@ class Script(scripts.Script):
 
             if loopback:
                 p.init_images[0] = processed.images[0]
+
+
 
         # Create video after generation (if enabled)
         # (Some code here is modified from https://github.com/memes-forever/Stable-diffusion-webui-video and related forks)
